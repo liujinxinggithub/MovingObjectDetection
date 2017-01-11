@@ -78,7 +78,7 @@ int main()
 			std::cout << "\nTotal Frame Count: " << totalFrameCount;
 
 			queue<Mat> cannyEdges, cannyEdgeDiffs;
-			Mat cannyEdgeDiffAcc, cannyEdgeDiffAccGlobal;
+			Mat cannyEdgeAcc, cannyEdgeDiffAcc, cannyEdgeDiffAccGlobal;
 
 			for (int currFrameIndx = 1; currFrameIndx <= totalFrameCount; currFrameIndx++)
 			{
@@ -106,8 +106,12 @@ int main()
 
 				detected_edges = detected_edges*(1.0f / 255);
 
+				if (currFrameIndx == 1) cannyEdgeAcc = detected_edges;
+				else cannyEdgeAcc += detected_edges;
 				cannyEdges.push(detected_edges);
 
+				if (currFrameIndx == 255)
+					int dsf = 9;
 				if (currFrameIndx > framestoConsider)
 				{
 					Mat cannyEdgeDiff;
