@@ -18,6 +18,12 @@ Date: 9-1-2016
 using namespace std;
 using namespace cv;
 
+const int maxLengthOfFileName = 6, framestoConsider = 5;
+int totalFrameCount = 2500;
+int isVideoSource = 0;
+
+const string imageFilePathBase = "D:\\dataset2012\\dataset\\cameraJitter\\boulevard\\input\\";
+
 const string videoFilePathBase = "D:\\Research\\test\\GroundTruth_Clip\\";
 const vector<string> videoFilePaths =
 {
@@ -27,41 +33,62 @@ const vector<string> videoFilePaths =
 };
 
 
+std::string getFileName(int frameIndx)
+{
+	std::string prefix = "", filename = to_string(static_cast<long long>(frameIndx));
+	for (int i = 1; i <= (maxLengthOfFileName - filename.size()); i++)
+	{
+		prefix = "0" + prefix;
+	}
+
+	filename = imageFilePathBase + "in" + prefix + filename + ".jpg";
+	return filename;
+}
+
+
 int main()
 {
 
 	//for (int x = 0; x < videoFilePaths.size(); x++)
 	{
-		//string sourceVideoFilePath = videoFilePathBase + videoFilePaths[x];
-		string sourceVideoFilePath = "D:\\Research\\test\\GroundTruth_Clip\\1882\\CEQ0001882_000643430.edit.mpg";
-
-		int totalFrameCount = 0, framestoConsider = 5;
-
+						
 		try {
+			VideoCapture cap;
+			
+			if (isVideoSource)
+			{
+				//string sourceVideoFilePath = videoFilePathBase + videoFilePaths[x];
+				string sourceVideoFilePath = "D:\\Research\\test\\GroundTruth_Clip\\1882\\CEQ0001882_000643430.edit.mpg";
+				
+				//open the video file
+				cap.open(sourceVideoFilePath); // cap.open(0); to open the camera
 
-			//open the video file
-			VideoCapture cap(sourceVideoFilePath);
+				// check if we succeeded
+				if (!cap.isOpened())
+					CV_Error(CV_StsError, "Can not open Video file");
 
-			// check if we succeeded
-			if (!cap.isOpened())
-				CV_Error(CV_StsError, "Can not open Video file");
+				vector<int> compression_params;
+				compression_params.push_back(CV_IMWRITE_JPEG_QUALITY);
+				compression_params.push_back(100);
 
-			vector<int> compression_params;
-			compression_params.push_back(CV_IMWRITE_JPEG_QUALITY);
-			compression_params.push_back(100);
-
-			//cap.get(CV_CAP_PROP_FRAME_COUNT) contains the number of frames in the video;
-			totalFrameCount = cap.get(CV_CAP_PROP_FRAME_COUNT);
+				//cap.get(CV_CAP_PROP_FRAME_COUNT) contains the number of frames in the video;
+				totalFrameCount = cap.get(CV_CAP_PROP_FRAME_COUNT);
+			}
+			
 			std::cout << "\nTotal Frame Count: " << totalFrameCount;
 
 			queue<Mat> cannyEdges, cannyEdgeDiffs;
 			Mat cannyEdgeDiffAcc, cannyEdgeDiffAccGlobal;
 
-			for (int currFrameIndx = 0; currFrameIndx < totalFrameCount - 1; currFrameIndx++)
+			for (int currFrameIndx = 1; currFrameIndx <= totalFrameCount; currFrameIndx++)
 			{
-				std::cout << currFrameIndx;
+				std::cout << currFrameIndx << " ";
 				Mat prev_frame, curr_frame, src_gray, detected_edges;
-				cap >> curr_frame; // get the next frame from video
+
+				if(isVideoSource)
+					cap >> curr_frame; // get the next frame from video
+				else
+					curr_frame = imread(getFileName(currFrameIndx), 1);
 
 				// RGB to gray scale conversion
 				cvtColor(curr_frame, src_gray, CV_BGR2GRAY);
@@ -81,17 +108,16 @@ int main()
 
 				cannyEdges.push(detected_edges);
 
-				if (currFrameIndx >= framestoConsider)
+				if (currFrameIndx > framestoConsider)
 				{
 					Mat cannyEdgeDiff;
 
-					if (currFrameIndx == framestoConsider)
+					if (currFrameIndx == framestoConsider + 1)
 					{
 						for (int c = 0; c < framestoConsider; c++)
 						{
-							cannyEdgeDiff = cannyEdges.front() - detected_edges;
-							abs(cannyEdgeDiff);
-
+							bitwise_xor(cannyEdges.front(), detected_edges, cannyEdgeDiff);
+							
 							cannyEdges.pop();
 							cannyEdgeDiffs.push(cannyEdgeDiff);
 
@@ -107,8 +133,7 @@ int main()
 					else
 					{
 						Mat oldest_cannyEdgesDiff = cannyEdgeDiffs.front();
-						cannyEdgeDiff = cannyEdges.front() - detected_edges;
-						abs(cannyEdgeDiff);
+						bitwise_xor(cannyEdges.front(), detected_edges, cannyEdgeDiff);
 
 						cannyEdges.pop();
 
@@ -128,8 +153,6 @@ int main()
 			//getchar();
 			//exit(1);
 		}
-
-		cout << "\nFile name: " << sourceVideoFilePath << endl;
 
 	}
 
